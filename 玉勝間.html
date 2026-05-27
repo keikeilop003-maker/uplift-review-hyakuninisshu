@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>古文演習</title><!-- タイトルはMETAから動的に設定 -->
+  <style>
+    /* ================================================================
+       SHARED ENGINE STYLES — 変更不要
+       ================================================================ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Kaku Gothic ProN","BIZ UDGothic","Yu Gothic Medium","Meiryo",sans-serif;
+      background: #f5f0e8; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 16px 48px; color: #333; font-size: 15px;
+    }
+    .screen { display: none; width: 100%; max-width: 540px; }
+    .screen.active { display: block; }
+
+    /* タイトル画面 */
+    .title-header { text-align: center; margin-top: 24px; margin-bottom: 32px; }
+    .title-label  { font-size: 0.78rem; color: #888; letter-spacing: 0.1em; margin-bottom: 6px; }
+    .title-main   { font-size: 1.7rem; font-weight: bold; color: #4a2e0a; letter-spacing: 0.12em; margin-bottom: 4px; }
+    .title-sub    { font-size: 0.85rem; color: #7a5c3a; letter-spacing: 0.06em; }
+    .title-passage {
+      background: #fff; border-left: 4px solid #c8a96e; border-radius: 8px;
+      padding: 18px 20px; margin-bottom: 28px;
+      font-size: 0.88rem; line-height: 2; color: #444;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .title-passage .passage-label { font-size: 0.75rem; color: #999; margin-bottom: 8px; letter-spacing: 0.06em; }
+    .category-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .cat-btn {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 18px; border-radius: 12px; border: 2px solid transparent;
+      background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      cursor: pointer; transition: transform 0.13s, box-shadow 0.13s, border-color 0.13s;
+      text-align: left; width: 100%; font-family: inherit; font-size: 0.95rem; color: #333;
+    }
+    .cat-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(0,0,0,0.10); border-color: #c8a96e; }
+    .cat-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0;
+    }
+    .cat-text { flex: 1; }
+    .cat-title  { font-weight: bold; color: #3a2500; font-size: 0.97rem; }
+    .cat-desc   { font-size: 0.78rem; color: #888; margin-top: 2px; }
+    .cat-count  { font-size: 0.78rem; color: #aaa; }
+
+    /* クイズ画面 */
+    .quiz-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .quiz-back-btn { background: none; border: none; font-size: 0.85rem; color: #999; cursor: pointer; padding: 4px 0; font-family: inherit; }
+    .quiz-back-btn:hover { color: #555; }
+    .quiz-cat-label { font-size: 0.78rem; color: #aaa; letter-spacing: 0.06em; }
+    .progress-bar-wrap { background: #e0d6c8; border-radius: 100px; height: 7px; margin-bottom: 22px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg,#c8a96e,#e8c98e); border-radius: 100px; transition: width 0.4s ease; }
+    .question-card { background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 24px 22px; margin-bottom: 18px; }
+    .question-type-tag { display: inline-block; font-size: 0.72rem; padding: 3px 10px; border-radius: 100px; margin-bottom: 12px; font-weight: bold; letter-spacing: 0.05em; }
+    .question-num  { font-size: 0.78rem; color: #bbb; margin-bottom: 6px; }
+    .question-text { font-size: 1.05rem; line-height: 1.75; color: #2a1a00; font-weight: bold; }
+    .multi-hint {
+      text-align: center; font-size: 0.78rem; color: #b36a00;
+      background: #fff9f0; border: 1px solid #f0d8a0; border-radius: 6px;
+      padding: 5px 12px; margin-top: 10px; display: inline-block;
+    }
+    .question-example {
+      margin-top: 12px; padding: 10px 14px;
+      background: #fafaf6; border-left: 3px solid #c8a96e;
+      border-radius: 4px; font-size: 0.88rem; color: #555; line-height: 1.75;
+    }
+    .question-example .ex-label { font-size: 0.72rem; color: #bbb; margin-bottom: 4px; }
+    u.word-ul { text-decoration-color: #c8903e; text-underline-offset: 4px; text-decoration-thickness: 2px; font-weight: bold; }
+
+    /* 選択肢 */
+    .choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .choice-btn {
+      padding: 14px 18px; border-radius: 10px; border: 2px solid #e8ddd0; background: #fff;
+      cursor: pointer; text-align: left; font-family: inherit; font-size: 0.93rem; color: #333; line-height: 1.6;
+      transition: border-color 0.12s, background 0.12s, transform 0.1s;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .choice-btn:hover:not(:disabled):not(.multi-mode) { border-color: #c8a96e; transform: translateX(3px); }
+    .choice-btn .choice-label {
+      min-width: 22px; height: 22px; border-radius: 50%; background: #f0e8dc;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: bold; color: #a07040; flex-shrink: 0; margin-top: 1px;
+    }
+    .choice-btn .choice-text { flex: 1; }
+    .choice-btn.multi-mode:hover:not(:disabled) { border-color: #c8a96e; background: #fffbf5; }
+    .choice-btn.multi-selected { border-color: #c8a96e !important; background: #fffbf0 !important; }
+    .choice-btn.multi-selected .choice-label { background: #c8a96e !important; color: #fff !important; }
+    .choice-btn.correct { border-color: #3a9e5a !important; background: #edfaf2 !important; }
+    .choice-btn.correct .choice-label { background: #3a9e5a !important; color: #fff !important; }
+    .choice-btn.wrong   { border-color: #e05555 !important; background: #fdeaea !important; }
+    .choice-btn.wrong   .choice-label { background: #e05555 !important; color: #fff !important; }
+    .choice-btn.missed  { border-color: #e8a000 !important; background: #fff8e8 !important; }
+    .choice-btn.missed  .choice-label { background: #e8a000 !important; color: #fff !important; }
+    .choice-btn.dimmed { opacity: 0.38; }
+    .choice-btn:disabled { cursor: default; }
+
+    /* 穴埋め */
+    .passage-input {
+      display: inline-block; width: 5.5em; padding: 2px 4px;
+      border: none; border-bottom: 2px solid #c8a96e;
+      background: #fffdf7; font-family: inherit; font-size: 0.95em;
+      text-align: center; outline: none; color: #333;
+      transition: border-color 0.2s, background 0.2s; vertical-align: baseline; cursor: text;
+    }
+    .passage-input:focus   { border-bottom-color: #8a5c1e; background: #fff9ec; }
+    .passage-input.correct { border-bottom-color: #3a9e5a; background: #edfaf2; color: #2a7a44; font-weight: bold; }
+    .passage-input.wrong   { border-bottom-color: #e05555; background: #fdeaea; color: #c04040; }
+    .passage-blank-wrap { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; }
+    .passage-blank-num  { font-weight: bold; color: #a02060; font-size: 0.85em; line-height: 1; }
+    .passage-box {
+      background: #faf7f0; border-left: 3px solid #c8a96e; border-radius: 6px;
+      padding: 14px 16px; line-height: 2.6; font-size: 0.95rem; color: #2a1a00; margin-bottom: 4px;
+    }
+
+    /* 凡例 */
+    .legend { display: none; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.75rem; color: #777; }
+    .legend.show { display: flex; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 50%; }
+    .legend-dot.ok   { background: #3a9e5a; }
+    .legend-dot.ng   { background: #e05555; }
+    .legend-dot.miss { background: #e8a000; }
+
+    .submit-answer-btn {
+      width: 100%; padding: 14px; background: #fff; border: 2px solid #c8a96e;
+      border-radius: 12px; font-family: inherit; font-size: 0.95rem; font-weight: bold; color: #7a4a00;
+      cursor: pointer; letter-spacing: 0.06em; transition: background 0.13s, transform 0.1s; margin-bottom: 10px;
+    }
+    .submit-answer-btn:hover { background: #fff8f0; transform: translateY(-1px); }
+    .submit-answer-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+    /* フィードバック */
+    .feedback-card { background: #fff; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 20px 22px; margin-bottom: 18px; display: none; }
+    .feedback-card.show { display: block; }
+    .feedback-result { font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; }
+    .feedback-result.ok { color: #3a9e5a; }
+    .feedback-result.ng { color: #e05555; }
+    .feedback-explain  { font-size: 0.88rem; line-height: 1.85; color: #444; border-top: 1px solid #f0e8dc; padding-top: 12px; }
+    .feedback-explain strong { color: #7a4a00; }
+    .next-btn {
+      width: 100%; padding: 16px;
+      background: linear-gradient(135deg,#c8a96e,#b8923e); color: #fff; border: none; border-radius: 12px;
+      font-family: inherit; font-size: 1rem; font-weight: bold; cursor: pointer; letter-spacing: 0.06em;
+      transition: opacity 0.15s, transform 0.1s; box-shadow: 0 3px 10px rgba(184,146,62,0.35);
+    }
+    .next-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .next-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    /* 結果画面 */
+    .results-header { text-align: center; margin-top: 20px; margin-bottom: 28px; }
+    .results-title  { font-size: 1.3rem; font-weight: bold; color: #4a2e0a; margin-bottom: 20px; }
+    .score-circle-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
+    .score-circle {
+      width: 130px; height: 130px; border-radius: 50%;
+      background: linear-gradient(135deg,#f0e0c0,#e8c98e);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(200,169,110,0.35);
+    }
+    .score-num   { font-size: 2.3rem; font-weight: bold; color: #4a2e0a; line-height: 1; }
+    .score-denom { font-size: 0.95rem; color: #a07040; }
+    .score-pct   { font-size: 0.82rem; color: #c8903e; margin-top: 3px; }
+    .score-comment { text-align: center; font-size: 0.93rem; color: #7a5c3a; margin-bottom: 24px; }
+    .results-actions { display: flex; flex-direction: column; gap: 10px; }
+    .action-btn {
+      width: 100%; padding: 15px; border-radius: 12px; border: 2px solid;
+      font-family: inherit; font-size: 0.95rem; font-weight: bold; cursor: pointer; letter-spacing: 0.04em;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .action-btn.primary   { background: linear-gradient(135deg,#c8a96e,#b8923e); border-color: transparent; color: #fff; box-shadow: 0 3px 10px rgba(184,146,62,0.3); }
+    .action-btn.secondary { background: #fff; border-color: #c8a96e; color: #7a4a00; }
+    .action-btn.tertiary  { background: #fff; border-color: #ddd; color: #888; }
+
+    /* 見直し画面 */
+    .review-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .review-back-btn { background: none; border: none; font-size: 0.85rem; color: #999; cursor: pointer; font-family: inherit; }
+    .review-title    { font-size: 1.1rem; font-weight: bold; color: #4a2e0a; }
+    .review-item { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.06); padding: 16px 18px; margin-bottom: 12px; border-left: 4px solid transparent; }
+    .review-item.ok { border-left-color: #3a9e5a; }
+    .review-item.ng { border-left-color: #e05555; }
+    .review-item.ok .review-badge { background: #edfaf2; color: #3a9e5a; }
+    .review-item.ng .review-badge { background: #fdeaea; color: #e05555; }
+    .review-item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .review-qnum   { font-size: 0.75rem; color: #bbb; }
+    .review-badge  { font-size: 0.72rem; font-weight: bold; padding: 3px 10px; border-radius: 100px; }
+    .review-q      { font-size: 0.88rem; font-weight: bold; color: #2a1a00; margin-bottom: 6px; line-height: 1.6; }
+    .review-answers { font-size: 0.82rem; color: #555; line-height: 1.8; }
+    .review-correct-ans { color: #3a9e5a; font-weight: bold; }
+    .review-user-ans    { color: #e05555; }
+    .review-explain { font-size: 0.80rem; color: #888; margin-top: 6px; line-height: 1.7; border-top: 1px solid #f5f0e8; padding-top: 6px; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     SCREENS（構造は変更不要）
+     ============================================================ -->
+
+<div id="screen-title" class="screen active">
+  <div class="title-header">
+    <div class="title-label"  id="hd-label"></div>
+    <div class="title-main"   id="hd-main"></div>
+    <div class="title-sub"    id="hd-sub"></div>
+  </div>
+  <div class="title-passage">
+    <div class="passage-label">本文（冒頭）</div>
+    <div id="hd-passage"></div>
+  </div>
+  <div class="category-list" id="category-list"></div>
+</div>
+
+<div id="screen-quiz" class="screen">
+  <div class="quiz-topbar">
+    <button class="quiz-back-btn" onclick="goToTitle()">← 戻る</button>
+    <span class="quiz-cat-label" id="quiz-cat-label"></span>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+  </div>
+  <div class="question-card">
+    <div class="question-num"      id="question-num"></div>
+    <span class="question-type-tag" id="q-type-tag"></span>
+    <div class="question-text"     id="question-text"></div>
+    <div class="question-example"  id="question-example" style="display:none">
+      <div class="ex-label">本文・例文</div>
+      <div id="question-example-text"></div>
+    </div>
+  </div>
+  <div class="legend" id="legend">
+    <span class="legend-item"><span class="legend-dot ok"></span>正解の選択肢</span>
+    <span class="legend-item"><span class="legend-dot ng"></span>誤って選んだ</span>
+    <span class="legend-item"><span class="legend-dot miss"></span>選び忘れた正解</span>
+  </div>
+  <div class="choices" id="choices"></div>
+  <button class="submit-answer-btn" id="submit-btn" style="display:none">答え合わせ</button>
+  <div class="feedback-card" id="feedback-card">
+    <div class="feedback-result" id="feedback-result"></div>
+    <div class="feedback-explain" id="feedback-explain"></div>
+  </div>
+  <button class="next-btn" id="next-btn" onclick="nextQuestion()" disabled>次の問題へ →</button>
+</div>
+
+<div id="screen-results" class="screen">
+  <div class="results-header">
+    <div class="results-title">結果</div>
+    <div class="score-circle-wrap">
+      <div class="score-circle">
+        <div class="score-num"   id="res-score">0</div>
+        <div class="score-denom" id="res-denom">/ 0 問</div>
+        <div class="score-pct"   id="res-pct">0%</div>
+      </div>
+    </div>
+    <div class="score-comment" id="score-comment"></div>
+  </div>
+  <div class="results-actions">
+    <button class="action-btn primary"   onclick="retryQuiz()">もう一度</button>
+    <button class="action-btn secondary" onclick="showReview()">問題を見直す</button>
+    <button class="action-btn tertiary"  onclick="goToTitle()">カテゴリ選択へ</button>
+  </div>
+</div>
+
+<div id="screen-review" class="screen">
+  <div class="review-header">
+    <button class="review-back-btn" onclick="showResults()">← 結果に戻る</button>
+    <div class="review-title">見直し</div>
+  </div>
+  <div id="review-list"></div>
+</div>
+
+<script>
+/* ================================================================
+   ▼▼▼  BEGIN_EXERCISE_DATA  ここだけ演習ごとに書き換える  ▼▼▼
+   ================================================================ */
+
+const META = {
+  label:       '古文演習 ／ 玉勝間（明治大）',
+  mainTitle:   '玉勝間',
+  subTitle:    '古文単語・接続語・文学史 練習問題',
+  passageText: '兼好法師がつれづれ草に、花はさかりに、月はくまなきをのみ見るものかはとか言へるは、いかにぞや。'
+};
+
+const CATEGORIES = [
+  {
+    id: 'vocab', icon: '📖', iconBg: '#fff3e0',
+    title: '古文単語', desc: '単語の意味を選ぶ（複数正解あり）', count: '12語',
+    typeLabel: '古文単語', tagClass: 'tag-c1',
+    build: () => buildVocabQs(vocabData, 'tag-c1', '古文単語')
+  },
+  {
+    id: 'choice1', icon: '🔗', iconBg: '#e8f4fd',
+    title: '接続語', desc: '文脈に合う接続語を選ぶ', count: '4問',
+    typeLabel: '接続語', tagClass: 'tag-c2',
+    build: () => buildChoiceQs(choice1Data, 'tag-c2', '接続語')
+  },
+  {
+    id: 'fill1', icon: '✏️', iconBg: '#edfaf2',
+    title: '文学史', desc: '国学に関する語句を記述する', count: '7語',
+    typeLabel: '文学史', tagClass: 'tag-c3',
+    build: () => buildFillQs(fill1Config)
+  },
+];
+
+const TAG_COLORS = {
+  'tag-c1': { bg: '#fff3e0', color: '#b36a00' },
+  'tag-c2': { bg: '#e8f4fd', color: '#1a6fa0' },
+  'tag-c3': { bg: '#edfaf2', color: '#1a7a4a' },
+};
+
+const vocabData = [
+  {
+    word: 'くまなし',
+    underlineTarget: ['くまなき', 'くまなからむ'],
+    correctMeanings: ['曇りがない', '隠すところがない'],
+    distractors: ['遠慮がない', '欠点がない', '思慮がない'],
+    example: '月は<u class="word-ul">くまなき</u>をのみ見るものかは。',
+    explain: '<strong>くまなし</strong>は「陰・曇りがない」「隠れた所がない」の意。ここでは月が曇りなく明るい状態をいう。'
+  },
+  {
+    word: 'かこつ',
+    underlineTarget: ['かこち'],
+    correctMeanings: ['口実にする', '不平を言う'],
+    distractors: ['ほめたたえる', '待ち望む', '思い出す'],
+    example: '花のもとには、風を<u class="word-ul">かこち</u>、月の夜は、雲をいとひ。',
+    explain: '<strong>かこつ</strong>は「口実にする」「不平を言う」。ここでは風のせいにして嘆く意。'
+  },
+  {
+    word: 'せちなり',
+    underlineTarget: ['せちなる'],
+    correctMeanings: ['ひたすらだ', '切実だ'],
+    distractors: ['静かだ', '巧みだ', 'はっきりしている'],
+    example: '月はくまなからむことを思ふ心の<u class="word-ul">せちなる</u>からこそ。',
+    explain: '<strong>せちなり</strong>は程度が強く、心が切迫しているさま。'
+  },
+  {
+    word: 'さかしら心',
+    underlineTarget: ['さかしら心'],
+    correctMeanings: ['利口ぶる心', 'でしゃばった考え'],
+    distractors: ['素直な心', '風流を解する心', '信仰心'],
+    example: '後の世の<u class="word-ul">さかしら心</u>の、つくりみやびにして。',
+    explain: '<strong>さかしら</strong>は利口ぶること。本文では作為的で本来の心に反する姿勢を批判している。'
+  },
+  {
+    word: 'なべて',
+    underlineTarget: ['なべて'],
+    correctMeanings: ['総じて', '普通'],
+    distractors: ['急いで', '特別に', 'しだいに'],
+    example: 'すべて<u class="word-ul">なべて</u>の人のねがふ心にたがへるを。',
+    explain: '<strong>なべて</strong>は「一般に・総じて」、また「普通」の意。'
+  },
+  {
+    word: 'すぢ',
+    underlineTarget: ['すぢ'],
+    correctMeanings: ['家柄', '道理', '方向', '気質'],
+    distractors: ['季節', '約束', '返事'],
+    example: '心にかなはぬ<u class="word-ul">すぢ</u>を、かなしみうれへたるに。',
+    explain: '<strong>すぢ</strong>は文脈により「道筋・道理・方面・性質」などを表す多義語。'
+  },
+  {
+    word: 'わびし',
+    underlineTarget: ['わびしく', 'わびしき'],
+    correctMeanings: ['つらい', 'がっかりだ', 'みずぼらしい'],
+    distractors: ['おもしろい', '待ち遠しい', '誇らしい'],
+    example: '<u class="word-ul">わびしく</u>かなしきを、みやびたりとてねがはむは。',
+    explain: '<strong>わびし</strong>はつらく心細いさま。転じて貧弱・みすぼらしい意にもなる。'
+  },
+  {
+    word: 'よそぢ',
+    underlineTarget: ['よそぢ'],
+    correctMeanings: ['四十歳'],
+    distractors: ['三十歳', '五十歳', 'よその土地'],
+    example: '人は<u class="word-ul">よそぢ</u>に足らで死なむこそ。',
+    explain: '<strong>よそぢ</strong>は「四十」。年齢では四十歳を指す。'
+  },
+  {
+    word: 'めやすし',
+    underlineTarget: ['めやすかる', 'めやすき'],
+    correctMeanings: ['感じがよい'],
+    distractors: ['目立ちやすい', '気味が悪い', '計算しやすい'],
+    example: '人はよそぢに足らで死なむこそ、<u class="word-ul">めやすかる</u>べけれ。',
+    explain: '<strong>めやすし</strong>は見た感じがよい、無難で好ましいという意。'
+  },
+  {
+    word: '心ぎたなし',
+    underlineTarget: ['心ぎたなき'],
+    correctMeanings: ['心がいやしい', '邪念がある'],
+    distractors: ['心が弱い', '思いやりがある', '気が早い'],
+    example: 'いのち長からむことをねがふをば、<u class="word-ul">心ぎたなき</u>こととし。',
+    explain: '<strong>心ぎたなし</strong>は心が卑しい、欲深いという意。'
+  },
+  {
+    word: 'へつらふ',
+    underlineTarget: ['へつらへる'],
+    correctMeanings: ['こびる'],
+    distractors: ['背く', '励ます', '悟る'],
+    example: 'これみな仏の道に<u class="word-ul">へつらへる</u>ものにて。',
+    explain: '<strong>へつらふ</strong>は相手に気に入られようとしてこびること。'
+  },
+  {
+    word: 'とつくに',
+    underlineTarget: ['とつくに'],
+    correctMeanings: ['外国'],
+    distractors: ['遠い都', '死後の世界', '田舎'],
+    example: '<u class="word-ul">とつくに</u>のならひのうつれるにて。',
+    explain: '<strong>とつくに</strong>は「外つ国」で、外国のこと。'
+  },
+];
+
+const choice1Data = [
+  {
+    question: '空欄に入る接続語として最も適切なものを選びなさい。',
+    example: '「さは言へど、それが子なれば」など言はればこそ、かひある心地もし侍らめ、と啓すれば、笑はせ給ひて、「<u class="word-ul">　　　　</u>、ただ心にまかせよ」。〔枕草子〕',
+    correctAnswer: 'さらば',
+    distractors: ['さりとて', 'さるを', 'されば'],
+    explain: '<strong>さらば</strong>は「それならば・それでは」。前の発言を受けて、次の判断や命令へ進む。'
+  },
+  {
+    question: '空欄に入る接続語として最も適切なものを選びなさい。',
+    example: '<u class="word-ul">　　　　</u>、しいださむを待ちて寝ざらむも、わろかりなむと思ひて。〔宇治拾遺物語〕',
+    correctAnswer: 'さりとて',
+    distractors: ['さらば', 'さるを', 'されば'],
+    explain: '<strong>さりとて</strong>は「そうかといって・そうであっても」。前を受けつつ、別の判断を述べる。'
+  },
+  {
+    question: '空欄に入る接続語として最も適切なものを選びなさい。',
+    example: '<u class="word-ul">　　　　</u>、いかなることかありけん、いささかなることにつけて、世の中を憂しと思ひて。〔伊勢物語〕',
+    correctAnswer: 'さるを',
+    distractors: ['さらば', 'さりとて', 'されば'],
+    explain: '<strong>さるを</strong>は「そうであるのに・ところが」。前の状況に反する展開を導く。'
+  },
+  {
+    question: '空欄に入る接続語として最も適切なものを選びなさい。',
+    example: '<u class="word-ul">　　　　</u>、万葉などのころまでの歌には、ただ長く生きたらむことをこそねがひたれ。〔玉勝間〕',
+    correctAnswer: 'されば',
+    distractors: ['さらば', 'さりとて', 'さるを'],
+    explain: '<strong>されば</strong>は「だから・それゆえ」。前の内容を根拠として後を導く。'
+  },
+];
+
+const fill1Config = {
+  typeLabel:  '文学史',
+  tagClass:   'tag-c3',
+  question:   '次の文章の空欄①〜⑦に適切な語句を入力し、「答え合わせ」を押してください。',
+  passageRaw: '国学を大成した人物は{①}である。伊勢松坂の医者であった彼は、真言宗の僧侶である{②}の著書に影響を受けて国学を志し、やがて{③}に師事した。30年余りの歳月を費やして{④}を著した。原文を忠実に実証し、そこに現れた日本人の「まこと」の精神を理想とした。また、多くの文学論を著し従来の倫理的・道徳的な文学観を打破した。文学の本質は物事に感動する心の働きにあるとして、「源氏物語」の本質を{⑤}と評した{⑥}が優れている。後に古代日本人の精神を追究する思想は{⑦}に受け継がれ、後の明治維新の思想基盤となった。',
+  fillData: [
+    { label: '①', correctAnswers: ['本居宣長'], explain: '国学を大成し、『古事記伝』を著した人物。' },
+    { label: '②', correctAnswers: ['契沖'], explain: '本居宣長が国学を志すきっかけとなった僧侶・国学者。' },
+    { label: '③', correctAnswers: ['賀茂真淵'], explain: '本居宣長が師事した国学者。' },
+    { label: '④', correctAnswers: ['古事記伝'], explain: '本居宣長が長年を費やして著した『古事記』注釈書。' },
+    { label: '⑤', correctAnswers: ['もののあはれ', '物のあはれ', 'ものの哀れ'], explain: '本居宣長が『源氏物語』の本質とした理念。' },
+    { label: '⑥', correctAnswers: ['源氏物語玉の小櫛'], explain: '本居宣長の『源氏物語』注釈・文学論。' },
+    { label: '⑦', correctAnswers: ['平田篤胤'], explain: '宣長以後の国学思想を受け継いだ人物。' },
+  ]
+};
+
+/* ================================================================
+   ▲▲▲  END_EXERCISE_DATA  ▲▲▲
+   ================================================================ */
+
+
+/* ================================================================
+   SHARED ENGINE（変更不要）
+   ================================================================ */
+
+// タグ色を動的注入
+(function () {
+  const s = document.createElement('style');
+  s.textContent = Object.entries(TAG_COLORS)
+    .map(([cls, { bg, color }]) => `.${cls}{background:${bg};color:${color};}`)
+    .join('');
+  document.head.appendChild(s);
+})();
+
+// メタデータをHTMLに反映
+document.title = META.mainTitle + ' 古文演習';
+document.getElementById('hd-label').textContent   = META.label;
+document.getElementById('hd-main').textContent    = META.mainTitle;
+document.getElementById('hd-sub').textContent     = META.subTitle;
+document.getElementById('hd-passage').textContent = META.passageText;
+
+// カテゴリボタンを動的生成
+(function () {
+  const list = document.getElementById('category-list');
+  CATEGORIES.forEach(cat => {
+    list.insertAdjacentHTML('beforeend', `
+      <button class="cat-btn" onclick="startQuiz('${cat.id}')">
+        <div class="cat-icon" style="background:${cat.iconBg}">${cat.icon}</div>
+        <div class="cat-text">
+          <div class="cat-title">${cat.title}</div>
+          <div class="cat-desc">${cat.desc}</div>
+        </div>
+        <div class="cat-count">${cat.count}</div>
+      </button>`);
+  });
+  list.insertAdjacentHTML('beforeend', `
+    <button class="cat-btn" onclick="startQuiz('all')" style="border:2px dashed #c8a96e;background:#fffbf5;">
+      <div class="cat-icon" style="background:#f0e8fd">🎯</div>
+      <div class="cat-text">
+        <div class="cat-title">総合演習</div>
+        <div class="cat-desc">全カテゴリからランダム出題</div>
+      </div>
+      <div class="cat-count">全問</div>
+    </button>`);
+})();
+
+/* ── ビルダー関数 ─────────────────────────────────────────── */
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function underline(text, targets) {
+  if (!targets || !text) return text;
+  for (const t of (Array.isArray(targets) ? targets : [targets])) {
+    const idx = text.indexOf(t);
+    if (idx !== -1) return text.slice(0, idx) + `<u class="word-ul">${t}</u>` + text.slice(idx + t.length);
+  }
+  return text;
+}
+function makeFillPassageHTML(raw, blanks) {
+  const html = blanks.reduce((h, lb) => h.replace(
+    `{${lb}}`,
+    `<span class="passage-blank-wrap"><span class="passage-blank-num">${lb}</span><input type="text" class="passage-input" id="passage-input-${lb}" maxlength="15"></span>`
+  ), raw);
+  return `<div class="passage-box">${html}</div>`;
+}
+
+// 古文単語問題ビルダー
+function buildVocabQs(data, tagClass, typeLabel) {
+  return data.map(v => {
+    const isMulti = v.correctMeanings.length > 1;
+    const choices  = shuffle([...v.correctMeanings, ...v.distractors]);
+    const correctSet = new Set(v.correctMeanings);
+    const exUL = underline(v.example, v.underlineTarget);
+    return {
+      category: tagClass, typeLabel, tagClass, isMultiSelect: isMulti,
+      question: isMulti
+        ? `「${v.word}」の意味を<u>すべて</u>選べ。`
+        : `「${v.word}」の意味として正しいものを選べ。`,
+      example: exUL,
+      choices, correctSet,
+      correct: v.correctMeanings.join('　／　'),
+      explain: `<strong>【${v.word}】</strong><br><br>${v.explain}<br><br>例：${exUL}`
+    };
+  });
+}
+
+// 穴埋め問題ビルダー（1 config → 1問）
+function buildFillQs(cfg) {
+  if (!cfg || !cfg.fillData || cfg.fillData.length === 0) return [];
+  const blanks = cfg.fillData.map(h => h.label);
+  const combinedExplain = cfg.fillData.map(h =>
+    `<strong>【空欄 ${h.label}】</strong>　正解：${h.correctAnswers.join(' / ')}<br>${h.explain}`
+  ).join('<br><br>');
+  const correctSummary = cfg.fillData.map(h => `${h.label}：${h.correctAnswers[0]}`).join('　');
+  return [{
+    category: cfg.tagClass, typeLabel: cfg.typeLabel, tagClass: cfg.tagClass,
+    isMultiSelect: false, isAllFillBlank: true, fillData: cfg.fillData,
+    question: cfg.question,
+    example:  makeFillPassageHTML(cfg.passageRaw, blanks),
+    choices: [], correctSet: new Set(),
+    correct: correctSummary,
+    explain: combinedExplain
+  }];
+}
+
+// 選択問題ビルダー（単一正解）
+function buildChoiceQs(data, tagClass, typeLabel) {
+  return data.map(d => {
+    const choices = shuffle([d.correctAnswer, ...d.distractors]);
+    return {
+      category: tagClass, typeLabel: d.typeLabel || typeLabel, tagClass: d.tagClass || tagClass,
+      isMultiSelect: false,
+      question: d.question,
+      example:  d.example || null,
+      choices, correctSet: new Set([d.correctAnswer]),
+      correct: d.correctAnswer,
+      explain: `<strong>正解：${d.correctAnswer}</strong><br><br>${d.explain}`
+    };
+  });
+}
+
+/* ── クイズ状態 ──────────────────────────────────────────── */
+
+let currentCategory = '', allQuestions = [], currentIdx = 0;
+let userAnswers = [], score = 0, answered = false, selectedChoices = new Set();
+const CHOICE_LABELS = ['ア', 'イ', 'ウ', 'エ', 'オ', 'カ'];
+
+function getCatLabel(catId) {
+  if (catId === 'all') return '総合演習';
+  const c = CATEGORIES.find(c => c.id === catId);
+  return c ? c.title : catId;
+}
+
+function startQuiz(cat) {
+  currentCategory = cat;
+  let pool = [];
+  if (cat === 'all') {
+    CATEGORIES.forEach(c => { pool = pool.concat(c.build()); });
+    allQuestions = shuffle(pool);
+  } else {
+    const c = CATEGORIES.find(c => c.id === cat);
+    allQuestions = c ? c.build() : [];
+  }
+  currentIdx = 0; userAnswers = []; score = 0;
+  showScreen('quiz');
+  document.getElementById('quiz-cat-label').textContent = getCatLabel(cat);
+  renderQuestion();
+}
+function retryQuiz() { startQuiz(currentCategory); }
+
+/* ── 問題描画 ─────────────────────────────────────────────── */
+
+function renderQuestion() {
+  const q = allQuestions[currentIdx], total = allQuestions.length;
+  answered = false; selectedChoices = new Set();
+
+  document.getElementById('progress-bar').style.width = (currentIdx / total * 100) + '%';
+  document.getElementById('question-num').textContent  = `第 ${currentIdx + 1} 問 / ${total} 問`;
+
+  const tag = document.getElementById('q-type-tag');
+  tag.textContent = q.typeLabel;
+  tag.className   = 'question-type-tag ' + q.tagClass;
+
+  document.getElementById('question-text').innerHTML = q.question
+    + (q.isMultiSelect ? `<br><span class="multi-hint">複数選択可（正解をすべて選んで「答え合わせ」）</span>` : '');
+
+  const exDiv = document.getElementById('question-example');
+  if (q.example) { document.getElementById('question-example-text').innerHTML = q.example; exDiv.style.display = ''; }
+  else            { exDiv.style.display = 'none'; }
+
+  document.getElementById('legend').classList.remove('show');
+  const choicesDiv = document.getElementById('choices');
+  const submitBtn  = document.getElementById('submit-btn');
+
+  if (q.isAllFillBlank) {
+    choicesDiv.style.display = 'none';
+    submitBtn.style.display  = '';
+    submitBtn.disabled       = false;
+    submitBtn.textContent    = 'すべて答え合わせ';
+    submitBtn.onclick        = checkAllFillAnswers;
+    setTimeout(() => { const f = document.getElementById('passage-input-' + q.fillData[0].label); if (f) f.focus(); }, 50);
+  } else {
+    choicesDiv.style.display = '';
+    choicesDiv.innerHTML     = '';
+    q.choices.forEach((c, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn' + (q.isMultiSelect ? ' multi-mode' : '');
+      btn.onclick   = q.isMultiSelect ? () => toggleMulti(c, btn) : () => selectSingle(c, btn);
+      btn.innerHTML = `<span class="choice-label">${CHOICE_LABELS[i]}</span><span class="choice-text">${c}</span>`;
+      choicesDiv.appendChild(btn);
+    });
+    submitBtn.style.display = q.isMultiSelect ? '' : 'none';
+    submitBtn.disabled      = true;
+    submitBtn.textContent   = '答え合わせ';
+    submitBtn.onclick       = submitMulti;
+  }
+
+  document.getElementById('feedback-card').classList.remove('show');
+  const nb = document.getElementById('next-btn');
+  nb.disabled    = true;
+  nb.textContent = (currentIdx === allQuestions.length - 1) ? '結果を見る' : '次の問題へ →';
+}
+
+/* ── 解答ロジック ─────────────────────────────────────────── */
+
+function selectSingle(chosen, btn) {
+  if (answered) return; answered = true;
+  const q = allQuestions[currentIdx];
+  const ok = q.correctSet.has(chosen);
+  if (ok) score++;
+  userAnswers.push({ correct: ok, chosen: [chosen], question: q });
+  document.querySelectorAll('#choices .choice-btn').forEach(b => {
+    b.disabled = true;
+    const t = b.querySelector('.choice-text').textContent;
+    if (q.correctSet.has(t)) b.classList.add('correct');
+    else if (t === chosen)    b.classList.add('wrong');
+    else                      b.classList.add('dimmed');
+  });
+  showFeedback(ok, q);
+  document.getElementById('next-btn').disabled = false;
+}
+
+function toggleMulti(choice, btn) {
+  if (answered) return;
+  selectedChoices.has(choice) ? (selectedChoices.delete(choice), btn.classList.remove('multi-selected'))
+                               : (selectedChoices.add(choice),    btn.classList.add('multi-selected'));
+  document.getElementById('submit-btn').disabled = selectedChoices.size === 0;
+}
+
+function submitMulti() {
+  if (answered) return; answered = true;
+  const q = allQuestions[currentIdx], sel = selectedChoices, cor = q.correctSet;
+  const ok = [...cor].every(c => sel.has(c)) && [...sel].every(s => cor.has(s));
+  if (ok) score++;
+  userAnswers.push({ correct: ok, chosen: [...sel], question: q });
+  document.querySelectorAll('#choices .choice-btn').forEach(b => {
+    b.disabled = true;
+    const t = b.querySelector('.choice-text').textContent;
+    const ws = sel.has(t), cs = cor.has(t);
+    b.classList.remove('multi-selected');
+    if (cs && ws) b.classList.add('correct');
+    else if (!cs && ws) b.classList.add('wrong');
+    else if (cs && !ws) b.classList.add('missed');
+    else b.classList.add('dimmed');
+  });
+  document.getElementById('legend').classList.add('show');
+  document.getElementById('submit-btn').style.display = 'none';
+  showFeedback(ok, q);
+  document.getElementById('next-btn').disabled = false;
+}
+
+function checkAllFillAnswers() {
+  if (answered) return; answered = true;
+  const q = allQuestions[currentIdx], fd = q.fillData;
+  let allOk = true;
+  const results = fd.map(h => {
+    const inp = document.getElementById('passage-input-' + h.label);
+    if (!inp) return { label: h.label, userVal: '', isCorr: false, correctAnswers: h.correctAnswers };
+    const v = inp.value.trim(), ok = h.correctAnswers.some(a => v === a);
+    if (!ok) allOk = false;
+    inp.className = 'passage-input ' + (ok ? 'correct' : 'wrong');
+    inp.disabled = true;
+    return { label: h.label, userVal: v, isCorr: ok, correctAnswers: h.correctAnswers };
+  });
+  if (allOk) score++;
+  userAnswers.push({ correct: allOk, chosen: results.map(r => `${r.label}：${r.userVal || '（未入力）'}`), question: q });
+  document.getElementById('submit-btn').style.display = 'none';
+  const res = document.getElementById('feedback-result');
+  const wrong = results.filter(r => !r.isCorr);
+  if (allOk) { res.textContent = '✓ 全問正解！'; res.className = 'feedback-result ok'; }
+  else { res.innerHTML = `✗ 不正解あり（${wrong.map(r=>r.label).join('・')}）`; res.className = 'feedback-result ng'; }
+  const wrongNote = wrong.length ? '<br><br>' + wrong.map(r =>
+    `空欄${r.label}：正解 <strong>${r.correctAnswers.join(' / ')}</strong>（あなたの答え：${r.userVal || '（未入力）'}）`
+  ).join('<br>') : '';
+  document.getElementById('feedback-explain').innerHTML = q.explain + wrongNote;
+  document.getElementById('feedback-card').classList.add('show');
+  document.getElementById('next-btn').disabled = false;
+}
+
+function showFeedback(ok, q) {
+  const res = document.getElementById('feedback-result');
+  if (ok) { res.textContent = '✓ 正解！'; res.className = 'feedback-result ok'; }
+  else { res.innerHTML = `✗ 不正解　<span style="font-size:0.85rem;font-weight:normal;color:#888;">正解：${q.correct}</span>`; res.className = 'feedback-result ng'; }
+  document.getElementById('feedback-explain').innerHTML = q.explain;
+  document.getElementById('feedback-card').classList.add('show');
+}
+
+/* ── ナビゲーション ───────────────────────────────────────── */
+
+function nextQuestion() {
+  if (!answered) return;
+  if (++currentIdx >= allQuestions.length) showResultsScreen();
+  else renderQuestion();
+}
+function showResultsScreen() {
+  const total = allQuestions.length, pct = Math.round(score / total * 100);
+  document.getElementById('res-score').textContent = score;
+  document.getElementById('res-denom').textContent = `/ ${total} 問`;
+  document.getElementById('res-pct').textContent   = pct + '%';
+  document.getElementById('score-comment').textContent =
+    pct === 100 ? '満点です！すばらしい！' : pct >= 80 ? 'よくできました！' :
+    pct >= 60 ? 'もう少しで完璧です。' : pct >= 40 ? '復習して再挑戦しましょう。' : '基礎から見直しましょう。';
+  showScreen('results');
+}
+function showReview() {
+  const list = document.getElementById('review-list');
+  list.innerHTML = '';
+  userAnswers.forEach((ua, i) => {
+    const q = ua.question, div = document.createElement('div');
+    div.className = `review-item ${ua.correct ? 'ok' : 'ng'}`;
+    div.innerHTML = `
+      <div class="review-item-top">
+        <span class="review-qnum">第 ${i+1} 問</span>
+        <span class="review-badge">${ua.correct ? '正解' : '不正解'}</span>
+      </div>
+      <div class="review-q">${q.question.replace(/<[^>]+>/g,'')}</div>
+      <div class="review-answers">
+        <span class="review-correct-ans">正解：${q.correct}</span>
+        ${!ua.correct ? `<br><span class="review-user-ans">あなたの答え：${q.isAllFillBlank ? ua.chosen.join('　') : ua.chosen.join('、')}</span>` : ''}
+      </div>
+      <div class="review-explain">${q.explain}</div>`;
+    list.appendChild(div);
+  });
+  showScreen('review');
+}
+function showResults() { showScreen('results'); }
+function goToTitle()   { showScreen('title'); }
+function showScreen(n) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + n).classList.add('active');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
